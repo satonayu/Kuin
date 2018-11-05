@@ -27,6 +27,7 @@ var popupMainHelp: wnd@Popup
 var lockingEditor: bool
 var lockPropOnChange: bool
 var lockTreeItemOnSel: bool
+var lineLog: []char
 var textLog: []char
 var drag: bool
 
@@ -128,6 +129,7 @@ var drag: bool
 	do @lockingEditor :: false
 	do @lockPropOnChange :: false
 	do @lockTreeItemOnSel :: false
+	do @lineLog :: ""
 	do @textLog :: ""
 	do @drag :: false
 end func
@@ -552,6 +554,7 @@ func btnCompileOnPush(wnd: wnd@WndBase)
 		ret
 	end try
 	do \dll@resetMemAllocator()
+	do @lineLog :: ""
 	do @textLog :: ""
 	do @updateLog()
 	var cmd: []char
@@ -575,16 +578,18 @@ func btnCompileOnPush(wnd: wnd@WndBase)
 				do filePtr.writeChar('\n')
 				do filePtr.fin()
 			end if
-			do @textLog :~ \common@langEn ?("IK9999: Run.", "IK9999: 実行。\n")
+			do @textLog :: (\common@langEn ?("IK9999: Run.\n", "IK9999: 実行。\n")) ~ @textLog
 			do @updateLog()
 			if(@radioEnvWnd.getChk())
 				do \dbgwnd@show()
 			end if
 			if(\dll@runDbg(cmd, cmdLine, idleFunc, eventFunc, breakPointsFunc, breakFunc, dbgFunc))
-				do @textLog :~ \common@langEn ?("\nIK9999: Succees.\n", "\nIK9999: 正常終了。\n")
+				do @textLog :: @lineLog ~ "\n" ~ @textLog
+				do @lineLog :: ""
+				do @textLog :: (\common@langEn ?("\nIK9999: Succees.\n", "\nIK9999: 正常終了。\n")) ~ @textLog
 				do @updateLog()
 			else
-				do @textLog :~ \common@langEn ?("\nIK9999: Failure.\n", "\nIK9999: 実行失敗。\n")
+				do @textLog :: (\common@langEn ?("\nIK9999: Failure.\n", "\nIK9999: 実行失敗。\n")) ~ @textLog
 				do @updateLog()
 				do wnd@msgBox(@wndMain, \common@langEn ?("Could not run.", "実行できませんでした。"), \common@title, %err, %ok)
 			end if
@@ -608,7 +613,11 @@ func btnCompileOnPush(wnd: wnd@WndBase)
 	func eventFunc(type: int, str: []char): int
 		switch(type)
 		case 0
-			do @textLog :~ str.sub(4, -1)
+			do @lineLog :~ str.sub(4, -1)
+			if(@lineLog[^@lineLog - 1] = '\n')
+				do @textLog :: @lineLog ~ @textLog
+				do @lineLog :: ""
+			end if
 			do @updateLog()
 		end switch
 	end func
@@ -727,6 +736,7 @@ func btnRlsOnPush(wnd: wnd@WndBase)
 		ret
 	end try
 	do \dll@resetMemAllocator()
+	do @lineLog :: ""
 	do @textLog :: ""
 	do @updateLog()
 	try
@@ -791,7 +801,11 @@ end func
 
 func updateLog()
 	do @editLog.setRedraw(false)
-	do @editLog.setText(@textLog)
+	if(^@lineLog > 0)
+		do @editLog.setText(@lineLog ~ "\n" ~ @textLog)
+	else
+		do @editLog.setText(@textLog)
+	end if
 	do @editLog.setRedraw(true)
 end func
 
@@ -907,9 +921,9 @@ end func
 func log(args: [][]char, row: int, col: int)
 	var msg: []char :: \common@nullStr(args[0]) ~ ": " ~ \common@nullStr(args[1])
 	if(args[2] =& null)
-		do @textLog :~ msg ~ "\n"
+		do @textLog :: msg ~ "\n" ~ @textLog
 	else
-		do @textLog :~ msg ~ " (" ~ \common@nullStr(args[2]) ~ ": " ~ row.toStr() ~ ", " ~ col.toStr() ~ ")\n"
+		do @textLog :: msg ~ " (" ~ \common@nullStr(args[2]) ~ ": " ~ row.toStr() ~ ", " ~ col.toStr() ~ ")\n" ~ @textLog
 	end if
 	do @updateLog()
 	var pos: \src@Pos :: #\src@Pos
